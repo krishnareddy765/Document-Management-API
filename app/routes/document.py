@@ -1,0 +1,52 @@
+# app/routes/document.py
+
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.dependencies.auth_dependency import get_current_user, admin_only
+from app.services.document_service import (
+    save_document,
+    approve_document,
+    get_user_documents,
+    get_all_documents
+)
+from app.schemas.document_schema import DocumentResponse
+
+router = APIRouter(prefix="/documents", tags=["Documents"])
+
+
+@router.post("/upload", response_model=DocumentResponse)
+def upload_document(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    return save_document(file, db, current_user.id)
+
+
+@router.get("/my-documents", response_model=list[DocumentResponse])
+def my_documents(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    return get_user_documents(db, current_user.id)
+
+
+@router.get("/all", response_model=list[DocumentResponse])
+def all_documents(
+    db: Session = Depends(get_db),
+    admin=Depends(admin_only)
+):
+    return get_all_documents(db)
+
+
+@router.put("/approve/{document_id}", response_model=DocumentResponse)
+def approve(
+    document_id: int,
+    db: Session = Depends(get_db),
+    admin=Depends(admin_only)
+):
+    doc = approve_document(db, document_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return doc
