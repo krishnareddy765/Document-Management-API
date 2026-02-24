@@ -1,13 +1,15 @@
-# app/services/document_service.py
-
 import os
 from sqlalchemy.orm import Session
-from fastapi import UploadFile
+from fastapi import UploadFile, BackgroundTasks
 from app.models.document import Document
-
+from app.models.document_status_history import DocumentStatusHistory
 
 UPLOAD_DIR = "app/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+
+def log_approval(document_id: int):
+    print(f"Document {document_id} approved successfully")
 
 
 def save_document(file: UploadFile, db: Session, user_id: int):
@@ -30,13 +32,25 @@ def save_document(file: UploadFile, db: Session, user_id: int):
     return document
 
 
-def approve_document(db: Session, document_id: int):
+def approve_document(db: Session, document_id: int, admin_id: int, background_tasks: BackgroundTasks):
+
     doc = db.query(Document).filter(Document.id == document_id).first()
     if not doc:
         return None
 
     doc.status = "approved"
+
+    history = DocumentStatusHistory(
+        document_id=document_id,
+        status="approved",
+        changed_by=admin_id
+    )
+
+    db.add(history)
     db.commit()
+
+    background_tasks.add_task(log_approval, document_id)
+
     return doc
 
 

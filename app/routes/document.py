@@ -1,6 +1,4 @@
-# app/routes/document.py
-
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies.auth_dependency import get_current_user, admin_only
@@ -43,10 +41,11 @@ def all_documents(
 @router.put("/approve/{document_id}", response_model=DocumentResponse)
 def approve(
     document_id: int,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     admin=Depends(admin_only)
 ):
-    doc = approve_document(db, document_id)
+    doc = approve_document(db, document_id, admin.id, background_tasks)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     return doc

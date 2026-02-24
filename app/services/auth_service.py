@@ -1,5 +1,3 @@
-# app/services/auth_service.py
-
 from sqlalchemy.orm import Session
 from app.models.user import User
 from passlib.context import CryptContext
@@ -16,14 +14,23 @@ def verify_password(plain, hashed):
 
 
 def create_user(db: Session, email: str, password: str):
+
     existing = db.query(User).filter(User.email == email).first()
     if existing:
         raise Exception("User already exists")
 
+    # 🔥 CHECK IF FIRST USER
+    user_count = db.query(User).count()
+
+    if user_count == 0:
+        role = "admin"
+    else:
+        role = "user"
+
     user = User(
         email=email,
         hashed_password=hash_password(password),
-        role="user"
+        role=role
     )
 
     db.add(user)
