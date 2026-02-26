@@ -1,8 +1,10 @@
 import os
 from sqlalchemy.orm import Session
+from sqlalchemy import and_
 from fastapi import UploadFile, BackgroundTasks
 from app.models.document import Document
 from app.models.document_status_history import DocumentStatusHistory
+from datetime import datetime
 
 UPLOAD_DIR = "app/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -58,5 +60,43 @@ def get_user_documents(db: Session, user_id: int):
     return db.query(Document).filter(Document.uploaded_by == user_id).all()
 
 
-def get_all_documents(db: Session):
-    return db.query(Document).all()
+# ✅ ADVANCED FILTERING
+def get_all_documents(
+        db: Session,
+        status: str = None,
+        search: str = None,
+        start_date: str = None,
+        end_date: str = None,
+        page: int = 1,
+        page_size: int = 10
+):
+
+    query = db.query(Document)
+
+    # Filter by status
+    if status:
+        query = query.filter(Document.status == status)
+
+    # Search by filename
+    if search:
+        query = query.filter(Document.filename.ilike(f"%{search}%"))
+
+    # Date filtering
+    if start_date:
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        query = query.filter(Document.uploaded_at >= start)
+
+    if end_date:
+        end = datetime.strptime(end_date, "%Y-%m-%d")
+        query = query.filter(Document.uploaded_at <= end)
+
+    # Pagination
+    total = query.count()
+    documents = query.offset((page - 1) * page_size).limit(page_size).all()
+
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "data": documents
+    }
